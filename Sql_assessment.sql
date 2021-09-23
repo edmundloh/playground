@@ -29,15 +29,17 @@ date users_view_videos users_view_next_day
 2018-01-02 2 0
 */
 
---Setting parameters for the query
-SET (start_date_var,end_date_var,event_name_var) = ('2018-01-01',current_date-1,'video_play')
+--METHOD 1 - Without using the computation heavy count(distinct) function
 
---Finding unqiue users by date
+--Setting parameters for the query
+SET (start_date_var,end_date_var,event_name_var) = ('2018-01-01',current_date-1,'video_play');
+
+--Finding unique users by date (assuming base table name is EVENTS_TABLE)
 WITH users_day as
 (
 SELECT  date,
         user_id
-FROM EVENT_TABLE
+FROM EVENTS_TABLE
 WHERE event_name= $event_name_var
 AND   date between $start_date_var and $end_date_var
 GROUP BY 1,2
@@ -57,9 +59,9 @@ users_next_day_count as
 SELECT  a.date as current_date,
         b.date as next_date,
         count(a.user_id) as users_view_next_day
-FROM EVENT_TABLE a
-INNER JOIN EVENT_TABLE b
-  ON a.date = dateadd(day, -1, to_date(b.date))
+FROM users_day a
+INNER JOIN users_day b
+  ON a.date = b.date-1
   AND a.user_id=b.user_id
 GROUP BY 1,2
 )
@@ -72,9 +74,23 @@ select a.date,
 FROM users_day_count a
 LEFT JOIN users_next_day_count b
   ON a.date=b.current_date
-WHERE a.date <> $end_date_var
+WHERE a.date <> $end_date_var;
 
-       
-       
-        
 
+--METHOD 2 - Using count(distinct) and no sub-queries
+
+--Setting parameters for the query
+SET (start_date_var,end_date_var,event_name_var) = ('2018-01-01',current_date-1,'video_play');
+
+SELECT a.date,
+       count(distinct a.user_id) as users_view_videos,
+       count(distinct b.user_id) as users_view_next_day
+FROM EVENTS_TABLE a
+LEFT OUTER JOIN EVENTS_TABLE b
+  ON a.user_id=b.user_id and a.date=b.date-1
+WHERE a.date between $start_date_var and $end_date_var
+  and b.date between $start_date_var and $end_date_var
+  and a.event_name= $event_name_var
+  and b.event_name= $event_name_var
+GROUP BY 1
+HAVING a.date <> $end_date_var;
