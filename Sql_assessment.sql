@@ -93,4 +93,4 @@ WHERE a.date between $start_date_var and $end_date_var
   and a.event_name= $event_name_var
   and b.event_name= $event_name_var
 GROUP BY 1
-HAVING a.date <> $end_date_var;
+HAVING date <> $end_date_var;
